@@ -1,0 +1,97 @@
+/**==================================================================================================================
+ **【文件名称】  main.c
+ **【功能测试】  LCD_1.8寸屏_STM7735_8针
+ **==================================================================================================================
+ **【实验平台】  STM32F407 + KEIL5.31 + 1.8寸ST7735显示屏
+ **
+ **【实验操作】  1_接线
+ **                      GND   ---  GND
+ **                      VCC   ---  3.3V; 注意, 切勿接5V, 可能产生莫名错误
+ **                      SCK   ---  PA5 ; SPI_SCK
+ **                      MOSI  ---  PA7 ; SPI_MOSI
+ **                      RST   ---  RST ; 低电平复位线；直怼3.3V, 省一个芯片引脚
+ **                      DC/RS ---  PA12; 命令、数据切换
+ **                      CS    ---  PA8 ; SPI_CS
+ **                      BL    ---  PA15;背光控制，高电平亮。魔女科技的1.8寸屏已作优化，内部背光带下拉电阻，默认为熄屏状态，减少误动作亮屏
+ **              2_工程编译后，烧录代码到开发板
+ **              3_打开串口上位机即可观察数据输出，及显示屏输出
+ **
+ **【划 重 点】  1-本示例代码，适配市面大部分1.8寸ST7735的4针屏
+ **              2_本示例代码，使用硬件SPI，与市面1.8屏常用模拟SPI代码有区别，移植使用时注意和主程序的配合。
+ **              3_本示例代码，中文输出使用了两种字模存储方式，注意区别;
+ **
+ **【备注说明】  版权归魔女科技所有，请勿商用，谢谢！
+ **              https://demoboard.taobao.com
+====================================================================================================================*/
+#include "stm32f4xx.h"
+#include "bsp_led.h"
+#include "bsp_UART.h"
+#include "bsp_LCD_ST7735.h"
+
+
+
+/******************************************************************************
+ * 函  数： delay_ms
+ * 功  能： ms 延时函数
+ * 备  注： 1、系统时钟168MHz
+ *          2、打勾：Options/ c++ / One ELF Section per Function
+            3、编译优化级别：Level 3(-O3)
+ * 参  数： uint32_t  ms  毫秒值
+ * 返回值： 无
+ ******************************************************************************/
+static volatile uint32_t ulTimesMS;    // 使用volatile声明，防止变量被编译器优化
+static void delay_ms(uint16_t ms)
+{
+    ulTimesMS = ms * 16500;
+    while (ulTimesMS)
+        ulTimesMS--;                   // 操作外部变量，防止空循环被编译器优化掉
+}
+                                              
+                                                       
+                                                       
+                                                       
+int main(void)                                         
+{                                                      
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);      // 设置系统中断优先级分组2
+                                                        
+    UART1_Init(115200);                                  // UART1 初始化，用于与串口软件通信; TX-PA9、RX-PA10, 115200-8-N-1，中断发送、接收
+                                                        
+    Led_Init();                                          // LED 初始化
+                                                        
+    //W25Q128_Init ();                                   // 【核心板适配】无外部Flash；它还会改写SPI1时序，影响LCD
+                     
+    LCD_Init();                                          // OLED 初始化; 引脚的修改在bsp_OLED.h中
+    LCD_Fill(0, 0, 128, 160, BLACK);                     // 深色背景，对比度高
+
+    /* ===== 顶部标题（16号汉字，编译期字模 font.h） ===== */
+    LCD_ShowChinese(  8, 4, 0, 16, BLACK, WHITE);        // 温
+    LCD_ShowChinese( 24, 4, 1, 16, BLACK, WHITE);        // 湿
+    LCD_ShowChinese( 40, 4, 2, 16, BLACK, WHITE);        // 度
+    LCD_ShowChinese( 56, 4, 3, 16, BLACK, WHITE);        // 采
+    LCD_ShowChinese( 72, 4, 4, 16, BLACK, WHITE);        // 集
+
+    LCD_Line(0, 24, 127, 24, GRAY);                      // 分隔线
+    LCD_Line(0, 25, 127, 25, GRAY);
+
+    /* ===== 英文/数字（font.h ASCII 字模，不依赖外部Flash） ===== */
+    static char strTemp[24];
+    LCD_String( 4, 34, "TEMP:", 16, BLACK, GREEN);
+    sprintf(strTemp, "%4.1f C", 18.5f);
+    LCD_String(52, 34, strTemp, 16, BLACK, GREEN);
+
+    LCD_String( 4, 60, "HUMI:", 16, BLACK, CYAN);
+    sprintf(strTemp, "%4.1f %%", 85.3f);
+    LCD_String(52, 60, strTemp, 16, BLACK, CYAN);
+
+    LCD_String( 4, 86, "LCD OK", 24, BLACK, YELLOW);
+
+    while (1)                                            // while函数死循环，不能让main函数运行结束，否则会产生硬件错误
+    {                                                   
+        delay_ms(500);                                   // 间隔延时
+        LED_BLUE_TOGGLE ;                                // 规律地闪烁LED，方便外部观察系统是否正在运行
+    }
+}
+
+
+// 每个代码文件的末尾，注意要加两个空行
+

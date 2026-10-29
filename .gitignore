@@ -1,0 +1,47 @@
+# ---------- Keil 编译产物 ----------
+例程_ST7735/示例代码/Project/Output/
+*.o
+*.d
+*.crf
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.htm
+*.dep
+*.iex
+*.sct
+*.build_log.htm
+*.uvguix.*
+*.uvoptx.bak
+JLinkLog.txt
+RTE/
+
+# ---------- GCC 编译产物 ----------
+gcc_build/build/
+
+# ---------- Python ----------
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ---------- 临时/调试 ----------
+*.log
+bridge_out.log
+tools/_*.png
+tools/preview_*.png
+tools/gltf_*.png
+tools/anim_preview.png
+tools/_t.py
+tools/_vf_*.py
+
+# ---------- 旧实验目录 ----------
+_gcc_test/
+gcc_project/
+
+# ---------- 系统 ----------
+Thumbs.db
+desktop.ini
+.DS_Store
