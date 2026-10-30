@@ -54,3 +54,8 @@ desktop.ini
 妯＄粍/婧愮爜/.gradle/
 妯＄粍/婧愮爜/run/
 *.class
+
+# ---------- 皮肤（版权原因不入库，本地自备）----------
+skin_user*.png
+skins/
+

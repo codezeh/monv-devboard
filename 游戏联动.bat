@@ -31,7 +31,7 @@ echo   会先自动推送皮肤，再开始跟随游戏状态。
 echo   窗口别关，按 Ctrl+C 停止。
 echo.
 
-"%PY%" "%~dp0tools\mcbridge.py" --source log --auto-log --skin skin_user.png --preset hd --push-arms slim -p COM5
+"%PY%" "%~dp0tools\mcbridge.py" --source log --auto-log --skin <你的皮肤.png> --preset hd --push-arms slim -p COM5
 
 echo.
 echo   已停止。

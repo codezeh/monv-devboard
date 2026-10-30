@@ -23,7 +23,21 @@ from PIL import Image
 import arm_frames as AF
 import mcstream
 
-NL = chr(10)   # 避免转义问题
+NL = chr(10)
+
+def _skin_path(default_rel):
+    """皮肤文件路径。优先环境变量 SKIN_PATH，否则用默认相对路径。
+    仓库不附带皮肤（版权原因），需要自备一张 64x64 的 Minecraft 皮肤。"""
+    p = os.environ.get("SKIN_PATH") or os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), default_rel))
+    if not os.path.exists(p):
+        raise SystemExit(
+            "找不到皮肤文件: %s\n"
+            "仓库不附带皮肤图（版权原因）。请自备一张 Minecraft 皮肤，然后：\n"
+            "    set SKIN_PATH=D:\\path\\to\\your_skin.png\n"
+            "或把皮肤放到上面这个默认位置。" % p)
+    return p
+   # 避免转义问题
 
 # ---------------- 输出规格（与现有风格一致） ----------------
 OUT_W = 126          # 屏幕像素宽（<=126 防 ST7735 列地址越界）
@@ -148,7 +162,7 @@ def pose_seq(state, i, n=FRAMES):
 def build_frames(skin_path=None, out_w=OUT_W):
     HERE = os.path.dirname(os.path.abspath(__file__))
     if skin_path is None:
-        skin_path = os.path.join(HERE, "..", "skin_user.png")
+        skin_path = _skin_path("../skin_user.png")
     skin = Image.open(skin_path).convert("RGBA")
     aw = 3
 

@@ -34,6 +34,20 @@ import gltf_render as GR
 import mcstream
 
 NL = "\n"
+
+def _skin_path(default_rel):
+    """皮肤文件路径。优先环境变量 SKIN_PATH，否则用默认相对路径。
+    仓库不附带皮肤（版权原因），需要自备一张 64x64 的 Minecraft 皮肤。"""
+    p = os.environ.get("SKIN_PATH") or os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), default_rel))
+    if not os.path.exists(p):
+        raise SystemExit(
+            "找不到皮肤文件: %s\n"
+            "仓库不附带皮肤图（版权原因）。请自备一张 Minecraft 皮肤，然后：\n"
+            "    set SKIN_PATH=D:\\path\\to\\your_skin.png\n"
+            "或把皮肤放到上面这个默认位置。" % p)
+    return p
+
 STATE_ORDER = ["IDLE", "WALK", "RUN", "ATTACK", "JUMP", "SNEAK", "SLEEP"]
 
 HEAD_PARTS = {"Head_2", "Hat_Layer"}       # glTF 里真正带头贴图的部位
@@ -72,7 +86,7 @@ def alpha_centroid(img):
 def main():
     HERE = os.path.dirname(os.path.abspath(__file__))
     out_dir = os.path.join(HERE, "..", "例程_ST7735", "示例代码", "BSP", "SKIN")
-    skin = Image.open(os.path.join(HERE, "..", "skin_user.png")).convert("RGBA")
+    skin = Image.open(_skin_path("../skin_user.png")).convert("RGBA")
 
     # ---------- 头部层：yaw x tilt 二维表 ----------
     print("渲染头部层 %d yaw x %d tilt = %d 张 ..."

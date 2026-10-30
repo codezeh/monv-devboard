@@ -108,11 +108,11 @@ set PYTHONIOENCODING=utf-8
 set PY=C:\Users\zeh\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe
 
 %PY% tools\mcstream.py --list                        :: 列串口
-%PY% tools\mcstream.py skin_user.png -p COM5         :: 默认 hd
-%PY% tools\mcstream.py skin_user.png -p COM5 --preset pixel   :: 换粗像素版
-%PY% tools\mcstream.py skin_user.png -p COM5 --preset full    :: 换最清晰版
-%PY% tools\mcstream.py skin_user.png -p COM5 -b 460800        :: 波特率不稳就降
-%PY% tools\mcstream.py skin_user.png --preview-only           :: 只出预览不发送
+%PY% tools\mcstream.py <你的皮肤.png> -p COM5         :: 默认 hd
+%PY% tools\mcstream.py <你的皮肤.png> -p COM5 --preset pixel   :: 换粗像素版
+%PY% tools\mcstream.py <你的皮肤.png> -p COM5 --preset full    :: 换最清晰版
+%PY% tools\mcstream.py <你的皮肤.png> -p COM5 -b 460800        :: 波特率不稳就降
+%PY% tools\mcstream.py <你的皮肤.png> --preview-only           :: 只出预览不发送
 ```
 
 > 需要 `pip install pyserial`。板子回 `MSK OK 128 160` 表示成功。

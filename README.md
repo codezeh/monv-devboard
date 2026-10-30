@@ -27,7 +27,6 @@
 | `模组/源码/` | Fabric 模组源码（Java + Gradle） |
 | `模组/mcserial-1.0.0.jar` | 编好的模组，可直接丢进 `mods/` |
 | `tools/` | PC 端渲染/生成/自检脚本 |
-| `skins/` | 示例皮肤 |
 
 ---
 
