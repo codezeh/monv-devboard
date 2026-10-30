@@ -3,6 +3,10 @@
 一块 **STM32F407 + ST7735 (128×160)** 的小屏，实时显示 Minecraft 玩家半身像：
 走动会摆手、受伤会变红、跳跃会上移，**头会跟着你的视角左右转、抬头低头**。
 
+<p align="center">
+  <img src="docs/preview_hero.png" alt="正面 / 转头 / 低头" width="720">
+</p>
+
 头部是 3D 渲染的（不是 2D 贴图翻转），身体动画和头部姿态是**两个独立图层**，
 所以「头在转」和「身体在动」可以同时发生，全程本地 30fps。
 
@@ -14,6 +18,35 @@
    └────────────────────┘                 │ 本地合成 → LCD 30fps   │
                                            └───────────────────────┘
 ```
+
+---
+
+## 状态动画
+
+8 个状态各有一组预渲染帧（下面都是固件里的真实帧，不是示意图）：
+
+<p align="center">
+  <img src="docs/preview_states.png" alt="8 个状态" width="720">
+</p>
+
+| 状态 | 触发条件 | 板上表现 |
+|---|---|---|
+| IDLE | 其余情况 | 轻微呼吸 |
+| WALK | 水平速度 > 0.08 | 双臂前后摆动 |
+| RUN | 疾走中 | 摆幅更大 + 身体前倾 |
+| ATTACK | 挥击动作 | 右臂向前抬起再劈下 |
+| JUMP | 离地且不在水里 | 整体上移 + 双臂上举 |
+| SNEAK | 潜行中 | 身体下沉前倾 |
+| SLEEP | 睡觉中 | 下沉 + 垂头 |
+| HURT | 掉血后 0.8 秒内 | 整帧染红 |
+
+## 头部姿态
+
+头部可以左右转，也可以抬头低头，两轴独立于身体动画：
+
+<p align="center">
+  <img src="docs/preview_head.png" alt="左右 13 档 / 俯仰 5 档" width="760">
+</p>
 
 ---
 
@@ -147,6 +180,7 @@ python tools/fw_selftest.py -p COM5
 set AXOLOTL_MODEL_DIR=D:\axolotl\packages\assets\models
 
 python tools/gen_anim_c.py     # 重新渲染 身体层 + 头部层，写入 BSP/SKIN/*.c
+python tools/gen_preview.py    # 顺便更新 docs/ 里的预览图（可选）
 python gcc_build/build.py      # 重新编译
 ```
 
