@@ -3,21 +3,23 @@
 """
 gen_anim_c.py —— 生成固件用的动画/头部 C 数据文件
 
-v3（2026-10-30）：头/身分层。
-    以前每帧都是"头+身"烘死在一张图里，所以扭头和身体动画只能二选一
-    （扭头时整张图被推流帧顶掉，身体就不动了）。
+v4（2026-10-30）：头部支持「左右 + 俯仰」两个轴。
+    以前头层只有 yaw 一个轴，抬头低头做不到。现在头层是二维表：
+      g_head[yaw档][tilt档]
+    · yaw ：-60..+60，10° 一档，13 档（左右转头）
+    · tilt：-30..+30，15° 一档，5 档（低头-30 -> 平视0 -> 抬头+30）
+      注意这里的 tilt 就是渲染器的 Head.rx：**负值 = 低头**（与 SNEAK 一致）
 
-    现在拆成两层：
-      ① 身体层 skin_anim.c  —— 7 状态 × 8 帧，**不含头**（SLEEP 除外，见下）
-      ② 头部层 skin_head.c  —— 25 个 yaw 角度（-60..+60，5° 一档），只有头
-    固件每帧：解压身体帧 → 按当前角度把头部层贴上去 → 上屏。
-    于是"头在转"和"身体在动"可以同时发生，且完全本地 30fps，不需要推流。
+    Flash 账（512KB）：
+      身体层 56 帧 x ~3.3KB ≈ 205KB
+      头层   13x5 = 65 帧 x ~3.2KB ≈ 208KB
+      合计约 413KB + 代码，可放。
 
-    例外：SLEEP 状态的 Head.rx=-14（头明显垂下），用 0° 的头部层会看着"没睡"，
-    所以这一行保留整帧烘焙（头不参与旋转）。
+身体层依然是"不含头"的，固件每帧：解压身体帧 -> 贴上一张头层 -> 上屏。
+SLEEP 保留整帧烘焙（Head.rx=-14 头明显垂下，用通用头层会看着"没睡"）。
 
-    取景注意：gltf_render.render 的 skip/only 只过滤"绘制"，包围盒仍按全身算，
-    这样两层坐标系严格对齐（否则单画头时相机会怼到头上）。
+取景注意：gltf_render.render 的 skip/only 只过滤"绘制"，包围盒仍按全身算，
+这样两层坐标系严格对齐（否则单画头时相机会怼到头上）。
 """
 import os
 import sys
@@ -34,9 +36,12 @@ import mcstream
 NL = "\n"
 STATE_ORDER = ["IDLE", "WALK", "RUN", "ATTACK", "JUMP", "SNEAK", "SLEEP"]
 
-HEAD_PARTS = {"Head_2", "Hat_Layer"}      # glTF 里真正带头贴图的部位
-HEAD_ANGLES = list(range(-60, 61, 5))     # 25 档
-BAKED_STATES = {"SLEEP"}                  # 这些状态保留整帧烘焙（头不转）
+HEAD_PARTS = {"Head_2", "Hat_Layer"}       # glTF 里真正带头贴图的部位
+
+HEAD_YAW = list(range(-60, 61, 10))        # 13 档：左右
+HEAD_TILT = [-30, -15, 0, 15, 30]          # 5 档：低头 -> 平视 -> 抬头（= Head.rx）
+
+BAKED_STATES = {"SLEEP"}                   # 这些状态保留整帧烘焙（头不参与旋转）
 
 
 def to565(img):
@@ -69,16 +74,21 @@ def main():
     out_dir = os.path.join(HERE, "..", "例程_ST7735", "示例代码", "BSP", "SKIN")
     skin = Image.open(os.path.join(HERE, "..", "skin_user.png")).convert("RGBA")
 
-    # ---------- 头部层 ----------
-    print("渲染头部层 %d 个角度 ..." % len(HEAD_ANGLES))
-    head_blobs = []
-    for ang in HEAD_ANGLES:
-        img = render_pose(skin, {"Head": {"ry": float(ang)}}, only=HEAD_PARTS)
-        enc = mcstream.rle_encode(to565(img))
-        head_blobs.append(enc)
-    head_total = sum(len(e) for e in head_blobs)
-    print("  头层总 RLE %.1f KB (单帧最大 %d B)" %
-          (head_total / 1024.0, max(len(e) for e in head_blobs)))
+    # ---------- 头部层：yaw x tilt 二维表 ----------
+    print("渲染头部层 %d yaw x %d tilt = %d 张 ..."
+          % (len(HEAD_YAW), len(HEAD_TILT), len(HEAD_YAW) * len(HEAD_TILT)))
+    head_blobs = {}
+    total = 0
+    worst = 0
+    for yi, yaw in enumerate(HEAD_YAW):
+        for ti, tilt in enumerate(HEAD_TILT):
+            img = render_pose(skin, {"Head": {"ry": float(yaw), "rx": float(tilt)}},
+                              only=HEAD_PARTS)
+            enc = mcstream.rle_encode(to565(img))
+            head_blobs[(yi, ti)] = enc
+            total += len(enc)
+            worst = max(worst, len(enc))
+    print("  头层总 RLE %.1f KB（单帧最大 %d B）" % (total / 1024.0, worst))
 
     c0 = alpha_centroid(render_pose(skin, {"Head": {"ry": 0.0}}, only=HEAD_PARTS))
 
@@ -94,10 +104,7 @@ def main():
                 offsets[(st, i)] = (0, 0)
             else:
                 img = render_pose(skin, pose, skip=HEAD_PARTS)
-                # 该帧头部应有的 2D 偏移（取景按全身算，因此通常接近 0，
-                # 但仍逐帧算一遍，姿势改动后自动跟上）
-                hi = render_pose(skin, pose, only=HEAD_PARTS)
-                c = alpha_centroid(hi)
+                c = alpha_centroid(render_pose(skin, pose, only=HEAD_PARTS))
                 if c is None or c0 is None:
                     offsets[(st, i)] = (0, 0)
                 else:
@@ -107,7 +114,7 @@ def main():
 
     body_total = sum(len(e) for _, _, e in body_blobs)
     print("  身体层总 RLE %.1f KB" % (body_total / 1024.0))
-    print("  合计 %.1f KB（512KB Flash）" % ((body_total + head_total) / 1024.0))
+    print("  合计 %.1f KB（512KB Flash）" % ((body_total + total) / 1024.0))
 
     # ---------- skin_anim.h ----------
     h = os.path.join(out_dir, "skin_anim.h")
@@ -145,7 +152,8 @@ def main():
 
         f.write("const AnimFrame_t g_anim[ANIM_STATES][ANIM_FRAMES] = {" + NL)
         for st in STATE_ORDER:
-            f.write("    {   /* %s%s */" % (st, " (baked: head inside)" if st in BAKED_STATES else "") + NL)
+            note = " (baked: head inside)" if st in BAKED_STATES else ""
+            f.write("    {   /* %s%s */" % (st, note) + NL)
             for i in range(A.FRAMES):
                 name = "anim_%s_%d" % (st.lower(), i)
                 ln = [len(e) for s2, i2, e in body_blobs if s2 == st and i2 == i][0]
@@ -154,7 +162,8 @@ def main():
         f.write("};" + NL + NL)
 
         f.write("const uint8_t g_anim_layered[ANIM_STATES] = {" + NL)
-        f.write("    " + ", ".join("0" if st in BAKED_STATES else "1" for st in STATE_ORDER) + NL)
+        f.write("    " + ", ".join("0" if st in BAKED_STATES else "1"
+                                    for st in STATE_ORDER) + NL)
         f.write("};" + NL)
 
     # ---------- skin_head.h ----------
@@ -165,14 +174,20 @@ def main():
         f.write("#define __SKIN_HEAD_H" + NL + NL)
         f.write("#include <stdint.h>" + NL)
         f.write('#include "skin_anim.h"' + NL + NL)
-        f.write("#define HEAD_COUNT %d" % len(HEAD_ANGLES) + NL)
-        f.write("#define HEAD_STEP  %d   /* 每档角度 */" % (HEAD_ANGLES[1] - HEAD_ANGLES[0]) + NL)
-        f.write("#define HEAD_MIN   %d   /* 最小角度 */" % HEAD_ANGLES[0] + NL)
-        f.write("#define HEAD_MID   %d   /* 正前方在数组里的下标 */" %
-                HEAD_ANGLES.index(0) + NL + NL)
-        f.write("/* 头部层：只有头（含帽子层），其余全透明（0xF81F） */" + NL)
-        f.write("extern const AnimFrame_t g_head[HEAD_COUNT];" + NL + NL)
-        f.write("/* 每个动画帧对应的头部 2D 偏移（应随身体起伏微调） */" + NL)
+        f.write("/* 左右(yaw)：-60..+60，%d 度一档 */" % (HEAD_YAW[1] - HEAD_YAW[0]) + NL)
+        f.write("#define HEAD_YAW_COUNT %d" % len(HEAD_YAW) + NL)
+        f.write("#define HEAD_YAW_MIN   %d" % HEAD_YAW[0] + NL)
+        f.write("#define HEAD_YAW_STEP  %d" % (HEAD_YAW[1] - HEAD_YAW[0]) + NL)
+        f.write("#define HEAD_YAW_MID   %d   /* 正前方下标 */" % HEAD_YAW.index(0) + NL + NL)
+        f.write("/* 俯仰(tilt=Head.rx)：负值低头、正值抬头，%d 度一档 */"
+                % (HEAD_TILT[1] - HEAD_TILT[0]) + NL)
+        f.write("#define HEAD_TILT_COUNT %d" % len(HEAD_TILT) + NL)
+        f.write("#define HEAD_TILT_MIN   %d" % HEAD_TILT[0] + NL)
+        f.write("#define HEAD_TILT_STEP  %d" % (HEAD_TILT[1] - HEAD_TILT[0]) + NL)
+        f.write("#define HEAD_TILT_MID   %d   /* 平视下标 */" % HEAD_TILT.index(0) + NL + NL)
+        f.write("/* 头层：只有头（含帽子层），其余全透明（0xF81F） */" + NL)
+        f.write("extern const AnimFrame_t g_head[HEAD_YAW_COUNT][HEAD_TILT_COUNT];" + NL + NL)
+        f.write("/* 每个动画帧对应的头部 2D 偏移（随身体起伏微调） */" + NL)
         f.write("extern const int8_t g_head_off[ANIM_STATES][ANIM_FRAMES][2];" + NL + NL)
         f.write("#endif" + NL)
 
@@ -181,16 +196,21 @@ def main():
     with open(hc, "w", encoding="utf-8", newline=NL) as f:
         f.write("/* auto-generated by tools/gen_anim_c.py -- do not edit */" + NL)
         f.write('#include "skin_head.h"' + NL + NL)
-        for idx, enc in enumerate(head_blobs):
-            f.write("static const uint8_t head_%02d[%d] = {" % (idx, len(enc)) + NL)
+        for (yi, ti), enc in head_blobs.items():
+            f.write("static const uint8_t head_%02d_%d[%d] = {"
+                    % (yi, ti, len(enc)) + NL)
             for k in range(0, len(enc), 20):
                 part = enc[k:k + 20]
                 f.write("    " + ",".join("0x%02X" % b for b in part) + "," + NL)
             f.write("};" + NL + NL)
-        f.write("const AnimFrame_t g_head[HEAD_COUNT] = {" + NL)
-        for idx, enc in enumerate(head_blobs):
-            f.write("    { head_%02d, %d },   /* %+d deg */" %
-                    (idx, len(enc), HEAD_ANGLES[idx]) + NL)
+
+        f.write("const AnimFrame_t g_head[HEAD_YAW_COUNT][HEAD_TILT_COUNT] = {" + NL)
+        for yi, yaw in enumerate(HEAD_YAW):
+            f.write("    {   /* yaw %+d */" % yaw + NL)
+            for ti, tilt in enumerate(HEAD_TILT):
+                f.write("        { head_%02d_%d, %d },   /* tilt %+d */"
+                        % (yi, ti, len(head_blobs[(yi, ti)]), tilt) + NL)
+            f.write("    }," + NL)
         f.write("};" + NL + NL)
 
         f.write("const int8_t g_head_off[ANIM_STATES][ANIM_FRAMES][2] = {" + NL)

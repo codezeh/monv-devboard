@@ -70,7 +70,8 @@ void        Skin_Render(uint16_t x, uint16_t y, uint16_t bgColor);
  *   'C' + type + len(1B) + payload   旧格式，mcstream.py 推整帧皮肤用
  *   'D' + type + len(2B) + payload   新格式，负载可达 64KB
  *   'S' + 命令字                     状态命令 SI/SW/SH/SJ/SA/SZ/SR/SK/SF
- *   'H' + 1 字节档位                  扭头角度（0..HEAD_COUNT-1）
+ *   'H' + 1 字节档位                 左右角度（0..HEAD_YAW_COUNT-1）
+ *   'V' + 1 字节档位                 俯仰角度（0..HEAD_TILT_COUNT-1）
  *
  * type: 0 = BEGIN（负载 w,h）  1 = DATA（RLE 字节流）  2 = END（提交）
  * RLE 每组 3 字节：[count][color_lo][color_hi]，count=1..255
@@ -88,9 +89,10 @@ uint8_t Skin_ConsumeCmdFlag(void);
 /* 推流静默计时；超过 3 秒没有新帧就自动交还本地 Flash 动画 */
 void    Skin_IdleTick(uint16_t ms);
 
-/* 设置扭头角度档位（0..HEAD_COUNT-1）；身体动画不受影响 */
-void    Skin_SetHeadIdx(uint8_t idx);
-uint8_t Skin_GetHeadIdx(void);
+/* 设置头部姿态档位；身体动画不受影响
+ *   yawIdx  0..HEAD_YAW_COUNT-1   左右（正前方 HEAD_YAW_MID）
+ *   tiltIdx 0..HEAD_TILT_COUNT-1  俯仰（平视 HEAD_TILT_MID） */
+void    Skin_SetHead(uint8_t yawIdx, uint8_t tiltIdx);
 
 /* 是否正在显示 PC 推流的精灵 */
 uint8_t Skin_IsStreamed(void);

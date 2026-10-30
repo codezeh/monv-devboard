@@ -61,6 +61,7 @@ static uint16_t s_ovBuf[SKIN_MAX_W * SKIN_MAX_H];  /* streamed override */
 #define P_DPAY    7
 #define P_SCMD    8
 #define P_HCMD    9
+#define P_VCMD    10
 
 static uint8_t  s_pState    = P_IDLE;
 static uint8_t  s_pType     = 0;
@@ -72,10 +73,13 @@ static uint8_t  s_cmdFlag   = 0;    /* 1 = 收到状态命令 */
 static uint32_t s_idleMs    = 0;    /* 推流静默计时 */
 
 /* ---------------- 头部层（扭头角度） ----------------
- * 角度以"档位下标"表示，0..HEAD_COUNT-1，正前方是 HEAD_MID。
+ * 角度用两个"档位下标"表示：
+ *   左右 s_headYaw  0..HEAD_YAW_COUNT-1 （正前方 HEAD_YAW_MID）
+ *   俯仰 s_headTilt 0..HEAD_TILT_COUNT-1（平视 HEAD_TILT_MID）
  * 由 'H' 命令直接设置（1 字节），不参与推流，所以身体动画照常本地播放。
  */
-static uint8_t s_headIdx = HEAD_MID;
+static uint8_t s_headYaw  = HEAD_YAW_MID;    /* 左右档位 */
+static uint8_t s_headTilt = HEAD_TILT_MID;   /* 俯仰档位（低头<->抬头） */
 
 
 /* ==================================================================
@@ -328,6 +332,7 @@ void Skin_FeedStream(const uint8_t *buf, uint16_t len)
             else if (b == 'D')                   { s_pState = P_DTYPE; s_ctlPos = 0; }
             else if (b == 'S' || b == 's')         s_pState = P_SCMD;
             else if (b == 'H' || b == 'h')         s_pState = P_HCMD;
+            else if (b == 'V' || b == 'v')         s_pState = P_VCMD;
             /* 其它字节丢掉，等待重新同步 */
             break;
 
@@ -370,12 +375,21 @@ void Skin_FeedStream(const uint8_t *buf, uint16_t len)
             stream_state_cmd(b);
             break;
 
-        case P_HCMD:                    /* 'H' + 1 字节角度档 */
+        case P_HCMD:                    /* 'H' + 1 字节：左右档位 */
             s_pState = P_IDLE;
-            if (b < HEAD_COUNT) s_headIdx = b;
+            if (b < HEAD_YAW_COUNT) s_headYaw = b;
             {
                 uint8_t ack = 'h';
                 UART1_SendData(&ack, 1);   /* 回 ACK，便于 PC 端自检 */
+            }
+            break;
+
+        case P_VCMD:                    /* 'V' + 1 字节：俯仰档位 */
+            s_pState = P_IDLE;
+            if (b < HEAD_TILT_COUNT) s_headTilt = b;
+            {
+                uint8_t ack = 'v';
+                UART1_SendData(&ack, 1);
             }
             break;
 
@@ -465,12 +479,11 @@ static void blit_head(const AnimFrame_t *fr, uint16_t w, uint16_t h,
     }
 }
 
-void Skin_SetHeadIdx(uint8_t idx)
+void Skin_SetHead(uint8_t yawIdx, uint8_t tiltIdx)
 {
-    if (idx < HEAD_COUNT) s_headIdx = idx;
+    if (yawIdx  < HEAD_YAW_COUNT)  s_headYaw  = yawIdx;
+    if (tiltIdx < HEAD_TILT_COUNT) s_headTilt = tiltIdx;
 }
-
-uint8_t Skin_GetHeadIdx(void) { return s_headIdx; }
 
 
 /* ==================================================================
@@ -549,9 +562,11 @@ void Skin_Render(uint16_t x, uint16_t y, uint16_t bgColor)
     decode_frame(&g_anim[row][idx], ANIM_W, ANIM_H, tint);
 
     /* 分层状态：把当前角度的头贴上去（身体动画不受影响） */
-    if (g_anim_layered[row] && s_headIdx < HEAD_COUNT)
+    if (g_anim_layered[row] &&
+        s_headYaw  < HEAD_YAW_COUNT &&
+        s_headTilt < HEAD_TILT_COUNT)
     {
-        blit_head(&g_head[s_headIdx], ANIM_W, ANIM_H,
+        blit_head(&g_head[s_headYaw][s_headTilt], ANIM_W, ANIM_H,
                   g_head_off[row][idx][0], g_head_off[row][idx][1], tint);
     }
 

@@ -5,15 +5,22 @@
 #include <stdint.h>
 #include "skin_anim.h"
 
-#define HEAD_COUNT 25
-#define HEAD_STEP  5   /* 每档角度 */
-#define HEAD_MIN   -60   /* 最小角度 */
-#define HEAD_MID   12   /* 正前方在数组里的下标 */
+/* 左右(yaw)：-60..+60，10 度一档 */
+#define HEAD_YAW_COUNT 13
+#define HEAD_YAW_MIN   -60
+#define HEAD_YAW_STEP  10
+#define HEAD_YAW_MID   6   /* 正前方下标 */
 
-/* 头部层：只有头（含帽子层），其余全透明（0xF81F） */
-extern const AnimFrame_t g_head[HEAD_COUNT];
+/* 俯仰(tilt=Head.rx)：负值低头、正值抬头，15 度一档 */
+#define HEAD_TILT_COUNT 5
+#define HEAD_TILT_MIN   -30
+#define HEAD_TILT_STEP  15
+#define HEAD_TILT_MID   2   /* 平视下标 */
 
-/* 每个动画帧对应的头部 2D 偏移（应随身体起伏微调） */
+/* 头层：只有头（含帽子层），其余全透明（0xF81F） */
+extern const AnimFrame_t g_head[HEAD_YAW_COUNT][HEAD_TILT_COUNT];
+
+/* 每个动画帧对应的头部 2D 偏移（随身体起伏微调） */
 extern const int8_t g_head_off[ANIM_STATES][ANIM_FRAMES][2];
 
 #endif
