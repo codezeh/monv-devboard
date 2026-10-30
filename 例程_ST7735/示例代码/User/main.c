@@ -62,66 +62,19 @@ static void draw_bg(void)
 /* ==================================================================
  * UART锛氱姸鎬佸懡浠? + PC 鎺ㄦ祦鍥惧儚
  * ================================================================== */
-/* 推流模式：PC 连续推帧时置 1，主循环据此跳过 33ms 延时 */
-static uint8_t s_stream_mode = 0;
-static uint8_t s_frame_done  = 0;
 
 static void handle_uart(void)
 {
+    uint8_t  buf[256];
     uint16_t n;
-    uint8_t *p;
-    uint8_t  r;
-    uint8_t  burst;
 
-    /* 一次把排队的所有包都处理掉（最多 32 个），
-     * 否则主循环 33ms 只吃一个包，推流会慢到 0.4fps */
-    for (burst = 0; burst < 64; burst++)
+    /* 从环形缓冲里取字节，不受本次轮询时机影响：
+     * 刷屏要十几毫秒，期间到达的数据先进环形缓冲，不会被覆盖。 */
+    while ((n = UART1_RingRead(buf, sizeof(buf))) > 0)
     {
-        n = UART1_GetRxNum();
-        if (n == 0)
-        {
-            if (burst == 0) return;
-            return;                     /* 没有新包就立刻返回，不加延时 */
-        }
-
-        p = UART1_GetRxData();
-
-    /* ---- PC 鎺ㄦ祦绮剧伒锛堝潡浠? 'C' 寮?澶达級 ---- */
-    if (p[0] == 'C')
-    {
-        r = Skin_StreamChunk(p, n);
-        if (r == 2)
-        {
-            s_frame_done  = 1;
-            s_stream_mode = 1;
-        }
-        UART1_ClearRx();
-        continue;
+        Skin_FeedStream(buf, n);
     }
-
-    /* ---- 鐘舵?佸懡浠? ---- */
-    if (n >= 2 && (p[0] == 'S' || p[0] == 's'))
-    {
-        switch ((char)p[1])
-        {
-        case 'I': case 'i': Skin_SetState(SKIN_IDLE);   break;
-        case 'W': case 'w': Skin_SetState(SKIN_WALK);   break;
-        case 'H': case 'h': Skin_SetState(SKIN_HURT);   break;
-        case 'J': case 'j': Skin_SetState(SKIN_JUMP);   break;
-        case 'A': case 'a': Skin_SetState(SKIN_ATTACK); break;
-        case 'Z': case 'z': Skin_SetState(SKIN_SLEEP);  break;
-        case 'R': case 'r': Skin_SetState(SKIN_RUN);    break;
-        case 'K': case 'k': Skin_SetState(SKIN_SNEAK);  break;
-        default: break;
-        }
-        s_manual = 1;
-        s_autoMs = 0;
-        UART1_SendString("-> %s\r\n", Skin_GetStateName(Skin_GetState()));
-    }
-
-    UART1_ClearRx();
-    }
-    }
+}
 
 
 /* ==================================================================
@@ -130,6 +83,7 @@ static void handle_uart(void)
 int main(void)
 {
     int16_t delta;
+    uint8_t i;
 
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
 
@@ -191,6 +145,14 @@ int main(void)
 
         handle_uart();
 
+        /* 接到状态命令：停止自动轮播并回一行日志 */
+        if (Skin_ConsumeCmdFlag())
+        {
+            s_manual = 1;
+            s_autoMs = 0;
+            UART1_SendString("-> %s\r\n", Skin_GetStateName(Skin_GetState()));
+        }
+
         /* ---------- 鑷?鍔ㄨ疆鎾? ---------- */
 #if AUTO_DEMO
         if (!s_manual)
@@ -206,25 +168,26 @@ int main(void)
         }
 #endif
 
-        /* ---------- 鍔ㄧ敾涓庣粯鍒? ---------- */
         /* ---------- 动画与绘制 ---------- */
-        if (s_stream_mode)
+        if (Skin_IsStreamed())
         {
-            /* 推流模式：只显示 PC 推来的帧，不做本地动画 */
-            if (s_frame_done)
-            {
-                s_frame_done = 0;
-                Skin_Render(s_bx, s_by, BG_COLOR);
-            }
-            /* 不留固定延时，让 UART 尽快吞吐 */
-            Delay_ms(1);
+            /* 推流模式：只在收到新帧时重绘，其余时间全速收串口 */
+            Skin_IdleTick(2);
+            if (Skin_ConsumeFrameFlag()) Skin_Render(s_bx, s_by, BG_COLOR);
+            else                         Delay_ms(2);
         }
         else
         {
             Skin_Tick(33);
             Skin_Render(s_bx, s_by, BG_COLOR);
             LED_BLUE_TOGGLE;
-            Delay_ms(33);            /* 约30fps */
+            /* 33ms 的等待拆成 16 次 2ms：保证推流期间串口每 2ms 被取走一次。
+             * 否则一帧 5.9KB 会在 33ms 内堆满驱动缓冲并被覆盖（丢数据）。 */
+            for (i = 0; i < 16; i++)
+            {
+                handle_uart();
+                Delay_ms(2);
+            }
         }
     }
 }

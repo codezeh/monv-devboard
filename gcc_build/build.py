@@ -43,6 +43,7 @@ C_SOURCES = [
     "BSP/SKIN/bsp_skin.c",
     "BSP/SKIN/skin_bust.c",
     "BSP/SKIN/skin_anim.c",
+    "BSP/SKIN/skin_head.c",
 ]
 
 CFLAGS = ["-mcpu=cortex-m4", "-mfpu=fpv4-sp-d16", "-mfloat-abi=hard", "-mthumb",

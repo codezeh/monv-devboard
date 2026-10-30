@@ -163,10 +163,15 @@ class GltfModel:
 #  渲染
 # ==============================================================
 def render(model, skin_img, out_w, out_h, yaw=160.0, pitch=-6.0,
-           zoom=1.0, center_y=0.35, frame_below=0.60):
+           zoom=1.0, center_y=0.35, frame_below=0.60,
+           skip=None, only=None):
     """
     skin_img: 64x64 或 64x32 皮肤（RGBA）
     返回 RGBA Image
+
+    skip / only：要【跳过绘制】/【只绘制】的部位名集合（None = 不限制）。
+    ★ 注意：取景（包围盒）始终按"全部部位"算，否则单画头时相机会怼到头上。
+      做"头/身分层"时靠这个保证两层坐标完全对齐。
     """
     W, H = out_w, out_h
     color = np.zeros((H, W, 4), dtype=np.float64)
@@ -226,6 +231,10 @@ def render(model, skin_img, out_w, out_h, yaw=160.0, pitch=-6.0,
 
     _dbg = {"tri": 0, "drawn": 0, "shade_min": 9e9, "shade_max": -9e9, "samp_max": 0.0}
     for (name, prim, world, nname) in model.parts():
+        if skip is not None and name in skip:
+            continue
+        if only is not None and name not in only:
+            continue
         pos = model.accessor(prim["attributes"]["POSITION"]).astype(np.float64)
         nrm = model.accessor(prim["attributes"]["NORMAL"]).astype(np.float64)
         uv = model.accessor(prim["attributes"]["TEXCOORD_0"]).astype(np.float64)

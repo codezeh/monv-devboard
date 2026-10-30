@@ -95,7 +95,7 @@
 #define UART5_TX_BUF_SIZE            512          // -- 注意此值是一个环形缓冲区大小，决定每一帧或多帧数据进入发送前的总缓存字节数，先进先出。
 #define UART6_TX_BUF_SIZE            512          //
 // 接收缓冲区大小
-#define UART1_RX_BUF_SIZE            512          // 配置每组UART接收缓冲区的大小，单位：字节; 此值影响范围：中断里的接收缓存大小，接收后数据缓存的大小
+#define UART1_RX_BUF_SIZE             512          // 配置每组UART接收缓冲区的大小，单位：字节; 此值影响范围：中断里的接收缓存大小，接收后数据缓存的大小
 #define UART2_RX_BUF_SIZE            512          // --- 当接收到的一帧数据字节数，小于此值时，数据正常；
 #define UART3_RX_BUF_SIZE            512          // --- 当接收到的一帧数据字节数，超过此值时，超出部分，将在中断中直接弃舍，直到此帧接收结束(发生空闲中断); 
 #define UART4_RX_BUF_SIZE            512          // 
@@ -119,6 +119,8 @@ void      UART1_SendData(uint8_t *puData, uint16_t usNum);                      
 void      UART1_SendString(const char *pcString, ...);                          // 发送字符串;   参数：字符串地址; 使用方法如同printf
 uint8_t   UART1_SendAT(char *pcAT, char *pcAckString, uint16_t usTimeOutMs);    // 本函数，针对ESP8266、蓝牙模块等AT固件，用于等待返回期待的信息; 参数：AT指令字符串、期待返回信息字符串、ms等待超时; 返回：0-执行失败、1-执行成功 
 uint16_t  UART1_GetRxNum(void);                                                 // 获取接收到的最新一帧字节数
+uint16_t  UART1_RingAvail(void);                                                /* 环形缓冲待取字节数 */
+uint16_t  UART1_RingRead(uint8_t *dst, uint16_t max);                            /* 从环形缓冲取字节；不受主循环轮询节奏影响 */
 uint8_t * UART1_GetRxData(void);                                                // 获取接收到的数据 (缓存的地址)
 void      UART1_ClearRx(void);                                                  // 清理接收到的数据 (清理最后一帧字节数，因为它是判断接收的标志)
 // UART2                                                                        

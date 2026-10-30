@@ -59,6 +59,17 @@ static void delay_ms(uint16_t ms)
 
 static xUSATR_TypeDef  xUART1 = { 0 };                      // 定义 UART1 的收发结构体
 static uint8_t uaUART1RxData[UART1_RX_BUF_SIZE];            // 定义 UART1 的接收缓存
+
+/* ---- UART1 接收环形缓冲 ----
+ * 原驱动只有一个接收槽：IRQ 每次 IDLE 直接把 rxTemp 覆盖到 puRxData，
+ * 主循环慢一点（例如正在 LCD_Image 刷屏几十毫秒）就会丢掉整块数据。
+ * 推流帧 5.9KB、在 921600 下只占 64ms，必须有不丢字节的缓冲。
+ * 8KB ≈ 89ms @921600，足够主循环任何时候来取。
+ */
+#define UART1_RING_SIZE   8192
+static uint8_t           uart1Ring[UART1_RING_SIZE];
+static volatile uint16_t uart1RingHead = 0;
+static volatile uint16_t uart1RingTail = 0;
 static uint8_t uaUART1TxFiFoData[UART1_TX_BUF_SIZE];        // 定义 UART1 的发送缓存
 
 /******************************************************************************
@@ -179,14 +190,19 @@ void USART1_IRQHandler(void)
     // 接收中断：用于逐个字节接收，存放到临时缓存
     if (USART1->SR & (0x01 << 5))                                    // 检查RXNE(读数据寄存器非空标志位); RXNE中断清理方法：读DR时自动清理；
     {
-        if ((cnt >= UART1_RX_BUF_SIZE))//||(xUART1.ReceivedFlag==1   // 判断1: 当前帧已接收到的数据量，已满(缓存区), 为避免溢出，本包后面接收到的数据直接舍弃．
         {
-            // 判断2: 如果之前接收好的数据包还没处理，就放弃新数据，即，新数据帧不能覆盖旧数据帧，直至旧数据帧被处理．缺点：数据传输过快于处理速度时会掉包；好处：机制清晰，易于调试
-            printf("警告：UART1单帧接收量，已超出接收缓存大小\r!");
-            USART1->DR;                                              // 读取数据寄存器的数据，但不保存．主要作用：读DR时自动清理接收中断标志；
-            return;
+            uint8_t  b   = (uint8_t)(USART1->DR & 0xFF);
+            uint16_t next = (uint16_t)((uart1RingHead + 1) % UART1_RING_SIZE);
+
+            /* 压入环形缓冲（满则丢弃，非阻塞，绝不在此 printf） */
+            if (next != uart1RingTail)
+            {
+                uart1Ring[uart1RingHead] = b;
+                uart1RingHead = next;
+            }
+            /* 旧通道照旧保留，供 UART1_SendAT 等历史代码使用 */
+            if (cnt < UART1_RX_BUF_SIZE) rxTemp[cnt++] = b;
         }
-        rxTemp[cnt++] = USART1->DR ;                                 // 把新收到的字节数据，顺序存放到RXTemp数组中；注意：读取DR时自动清零中断位；
         return;
     }
 
@@ -194,10 +210,16 @@ void USART1_IRQHandler(void)
     if (USART1->SR & (0x01 << 4))                                    // 检查IDLE(空闲中断标志位); IDLE中断标志清理方法：序列清零，USART1 ->SR;  USART1 ->DR;
     {
         xUART1.usRxNum  = 0;                                         // 把接收到的数据字节数清0
-        memcpy(xUART1.puRxData, rxTemp, UART1_RX_BUF_SIZE);          // 把本帧接收到的数据，存入到结构体的数组成员xUARTx.puRxData中, 等待处理; 注意：复制的是整个数组，包括0值，以方便字符串输出时尾部以0作字符串结束符
-        xUART1.usRxNum  = cnt;                                       // 把接收到的字节数，存入到结构体变量xUARTx.usRxNum中；
-        cnt = 0;                                                     // 接收字节数累计器，清零; 准备下一次的接收
-        memset(rxTemp, 0, UART1_RX_BUF_SIZE);                        // 接收数据缓存数组，清零; 准备下一次的接收
+        /* 只拷实际收到的字节：原来每次 IDLE 都 memcpy+memset 2KB，
+         * 在 921600 下要耗掉几百微秒，期间串口仍在进字节 -> ORE 溢出丢数据。
+         * 大帧已由 uart1Ring 承接，这里只需维护历史 AT 通道。 */
+        xUART1.usRxNum = cnt;
+        if (cnt > 0)
+        {
+            memcpy(xUART1.puRxData, rxTemp, cnt);
+            if (cnt < UART1_RX_BUF_SIZE) xUART1.puRxData[cnt] = 0;
+            cnt = 0;
+        }
         USART1 ->SR;
         USART1 ->DR;                                                 // 清零IDLE中断标志位!! 序列清零，顺序不能错!!
         return;
@@ -352,6 +374,26 @@ uint8_t *UART1_GetRxData(void)
 void UART1_ClearRx(void)
 {
     xUART1.usRxNum = 0 ;
+}
+
+/* 环形缓冲中待取字节数 */
+uint16_t UART1_RingAvail(void)
+{
+    uint16_t h = uart1RingHead;
+    uint16_t t2 = uart1RingTail;
+    return (uint16_t)((h >= t2) ? (h - t2) : (UART1_RING_SIZE - t2 + h));
+}
+
+/* 从环形缓冲取最多 max 字节，返回实际取出字节数 */
+uint16_t UART1_RingRead(uint8_t *dst, uint16_t max)
+{
+    uint16_t n = 0;
+    while (n < max && uart1RingTail != uart1RingHead)
+    {
+        dst[n++] = uart1Ring[uart1RingTail];
+        uart1RingTail = (uint16_t)((uart1RingTail + 1) % UART1_RING_SIZE);
+    }
+    return n;
 }
 #endif  // endif UART1_EN
 

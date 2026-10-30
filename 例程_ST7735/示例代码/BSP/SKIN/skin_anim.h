@@ -14,6 +14,9 @@ typedef struct {
     uint16_t       len;
 } AnimFrame_t;
 
+/* 帧表。layered=1 的行的帧【不含头】，由头部层叠加上去；
+ * layered=0 的行是整帧烘焙（头已画在图里，头部层不参与）。 */
 extern const AnimFrame_t g_anim[ANIM_STATES][ANIM_FRAMES];
+extern const uint8_t     g_anim_layered[ANIM_STATES];
 
 #endif

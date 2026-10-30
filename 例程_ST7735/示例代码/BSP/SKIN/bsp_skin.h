@@ -90,9 +90,26 @@ void        Skin_Render(uint16_t x, uint16_t y, uint16_t bgColor);
  *   鏈?鍚? Skin_StreamEnd()
  * ================================================================== */
 
-/* 澶勭悊涓?鍧楁敹鍒扮殑 UART 鏁版嵁锛堣嚜鍔ㄨ瘑鍒? START/DATA/END锛?
- * 杩斿洖锛? 0 = 澶辫触/蹇界暐, 1 = 澶勭悊浜嗘暟鎹?, 2 = 鏁村抚鎺ユ敹瀹屾垚 */
-uint8_t Skin_StreamChunk(const uint8_t *buf, uint16_t len);
+/* 把 UART 收到的字节原样全部喂进来（内部按长度前缀自定界）
+ *   'C' type len(1B) payload   旧格式：mcstream.py 一次性推皮肤
+ *   'D' type len(2B) payload   新格式：实时扭头帧（负载可达 64KB）
+ *   'S' cmd                    状态命令 SI/SW/SH/SJ/SA/SZ/SR/SK/SF
+ * 不依赖 UART 空闲间隙：写入被合并或被切碎都能正确解析。
+ * type: 0 = BEGIN(w,h)  1 = DATA(RLE 字节)  2 = END(提交整帧) */
+void    Skin_FeedStream(const uint8_t *buf, uint16_t len);
+
+/* 取"有新推流帧待绘制"标志，读后清零 */
+uint8_t Skin_ConsumeFrameFlag(void);
+
+/* 取"收到状态命令"标志，读后清零 */
+uint8_t Skin_ConsumeCmdFlag(void);
+
+/* 推流静默计时；超过 3 秒没有新帧就自动交还本地 Flash 动画 */
+void    Skin_IdleTick(uint16_t ms);
+
+/* 设置扭头角度档位（0..HEAD_COUNT-1）；身体动画不受影响 */
+void    Skin_SetHeadIdx(uint8_t idx);
+uint8_t Skin_GetHeadIdx(void);
 
 /* 鏄?鍚︽?ｅ湪浣跨敤 PC 鎺ㄦ祦鐨勭簿鐏? */
 uint8_t Skin_IsStreamed(void);
