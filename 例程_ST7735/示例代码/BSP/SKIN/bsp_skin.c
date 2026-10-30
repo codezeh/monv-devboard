@@ -1,19 +1,21 @@
 /**==================================================================================================================
  ** FILE   : bsp_skin.c
- ** BRIEF  : Bust renderer -- FULL-FRAME animation (plan C)
+ ** BRIEF  : Bust renderer —— 头/身体分层的全帧渲染
  **
- ** All animation frames are pre-rendered on the PC (real 3D arm rotation)
- ** and stored RLE-compressed in Flash. The firmware only:
- **   1. picks a frame by (state, phase)
- **   2. RLE-decodes it into the output buffer
- **   3. pushes to LCD
+ ** 数据都在 Flash 里（PC 端预渲染，固件只负责解压 + 贴图上屏）：
+ **   身体层 skin_anim.c  7 状态 x 8 帧，不含头
+ **   头部层 skin_head.c  25 个 yaw 角度，只有头
  **
- ** No part maps, no arm compositing, no alignment problems.
- ** RAM: one output buffer only (~34KB)
+ ** 每帧流程：
+ **   1. 按 (state, phase) 选身体帧，RLE 解压到 s_dstBuf（HURT 时整帧染红）
+ **   2. 若该状态是 layered，把当前角度的头部层叠上去（透明像素跳过）
+ **   3. 推给 LCD
  **
- ** State -> frame table (see skin_anim.c):
- **   0 IDLE   1 WALK   2 RUN   3 ATTACK   4 JUMP   5 SNEAK   6 SLEEP
- **   HURT reuses IDLE frames + red tint at runtime
+ ** 状态 -> 帧表（见 skin_anim.c）：
+ **   0 IDLE  1 WALK  2 RUN  3 ATTACK  4 JUMP  5 SNEAK  6 SLEEP
+ **   HURT 复用 IDLE 帧 + 运行时染红；SLEEP 是整帧烘焙（头不参与旋转）
+ **
+ ** RAM：输出缓冲 s_dstBuf 40KB + 推流覆盖缓冲 s_ovBuf 40KB
 ====================================================================================================================*/
 #include "bsp_skin.h"
 #include "bsp_LCD_ST7735.h"
