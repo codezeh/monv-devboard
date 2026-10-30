@@ -45,3 +45,6 @@ gcc_project/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---------- 烧录用设备包（pyOCD flash 需要，2MB） ----------
+.tools/
