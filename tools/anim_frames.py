@@ -48,9 +48,10 @@ FRAMES = 8           # 每状态帧数
 # ==============================================================
 #  渲染一帧完整图：头 + 身 + 双臂（指定角度）
 # ==============================================================
+# Steve 用的是 classic（4px 手臂）模型；Alex 那种细手臂才是 slim（3px）
 MODEL_PATH = os.environ.get(
-    "AXOLOTL_MODEL_DIR", "D:/axolotl/packages/assets/models").replace("\\","/")\
-    + "/slim-player.gltf"
+    "AXOLOTL_MODEL_DIR", "D:/axolotl/packages/assets/models").replace("\\", "/") \
+    + "/classic-player.gltf"
 
 
 def load_model(pose=None):
@@ -162,7 +163,7 @@ def pose_seq(state, i, n=FRAMES):
 def build_frames(skin_path=None, out_w=OUT_W):
     HERE = os.path.dirname(os.path.abspath(__file__))
     if skin_path is None:
-        skin_path = _skin_path("../skin_user.png")
+        skin_path = _skin_path("../skins/steve.png")
     skin = Image.open(skin_path).convert("RGBA")
     aw = 3
 

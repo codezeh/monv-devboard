@@ -86,7 +86,7 @@ def alpha_centroid(img):
 def main():
     HERE = os.path.dirname(os.path.abspath(__file__))
     out_dir = os.path.join(HERE, "..", "例程_ST7735", "示例代码", "BSP", "SKIN")
-    skin = Image.open(_skin_path("../skin_user.png")).convert("RGBA")
+    skin = Image.open(_skin_path("../skins/steve.png")).convert("RGBA")
 
     # ---------- 头部层：yaw x tilt 二维表 ----------
     print("渲染头部层 %d yaw x %d tilt = %d 张 ..."

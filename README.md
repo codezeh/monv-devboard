@@ -27,6 +27,7 @@
 | `模组/源码/` | Fabric 模组源码（Java + Gradle） |
 | `模组/mcserial-1.0.0.jar` | 编好的模组，可直接丢进 `mods/` |
 | `tools/` | PC 端渲染/生成/自检脚本 |
+| `skins/steve.png` | 默认皮肤（Minecraft 官方 Steve，64×64） |
 
 ---
 
@@ -66,7 +67,7 @@ pyocd flash --target stm32f407ve --freq 1000000 gcc_build/build/app.hex
 ### 3. 换皮肤
 
 ```bash
-python tools/mcstream.py -p COM5 --preset full 你的皮肤.png
+python tools/mcstream.py -p COM5 --preset full skins/steve.png
 ```
 
 > 串口是独占的：**换皮肤前先关游戏**（模组会一直占着口）。
@@ -134,9 +135,11 @@ python tools/fw_selftest.py -p COM5
 从任意 [Axolotl](https://github.com/Axolotl-Launcher/Axolotl) 安装目录取：
 
 ```
-<Axolotl>/packages/assets/models/slim-player.gltf      # 4px 手臂
-<Axolotl>/packages/assets/models/classic-player.gltf   # 3px 手臂
+<Axolotl>/packages/assets/models/classic-player.gltf   # 4px 手臂（Steve/Alex 的 wide 模型）
+<Axolotl>/packages/assets/models/slim-player.gltf      # 3px 手臂（细手臂模型）
 ```
+
+默认用 `classic-player.gltf`，因为史蒂夫是 wide 模型。换其它皮肤时注意区分。
 
 然后：
 
@@ -168,4 +171,8 @@ python gcc_build/build.py      # 重新编译
 [jSerialComm](https://fazecast.github.io/jSerialComm/)（LGPL-3.0 / Apache-2.0 双许可）。
 
 Minecraft 及相关素材版权归 Mojang / Microsoft 所有，本项目与它们无关。
-仓库不附带任何第三方模型或工具软件。
+
+- `skins/steve.png` 是 Minecraft 客户端自带的官方默认皮肤
+  （`assets/minecraft/textures/entity/player/wide/steve.png`），仅用于演示效果
+- 仓库不附带 glTF 模型，也不附带任何第三方工具软件
+- 换用你自己的皮肤时，请注意你对该皮肤图片有使用权
