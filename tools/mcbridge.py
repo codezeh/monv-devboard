@@ -51,7 +51,7 @@ def find_state_file():
     """在常见位置搜 mc_state.txt"""
     # 本机实际游戏目录（PCL + 自定义根目录）
     candidates = [
-        r"E:\我的世界文件\wwworld\.minecraft",
+        r"<你的 .minecraft 目录>",
         r"E:\.minecraft",
         os.path.expanduser(r"~\AppData\Roaming\.minecraft"),
     ]
@@ -244,7 +244,7 @@ def push_image(ser, skin_path, preset, yaw, pitch, arms):
 def find_latest_log():
     """在 .minecraft/versions/*/logs/latest.log 里找最新修改的那个"""
     roots = [
-        r"E:\我的世界文件\wwworld\.minecraft",
+        r"<你的 .minecraft 目录>",
         r"E:\.minecraft",
         os.path.expanduser(r"~\AppData\Roaming\.minecraft"),
     ]

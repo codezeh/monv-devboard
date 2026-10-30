@@ -34,7 +34,9 @@ FRAMES = 8           # 每状态帧数
 # ==============================================================
 #  渲染一帧完整图：头 + 身 + 双臂（指定角度）
 # ==============================================================
-MODEL_PATH = 'D:/axolotl/packages/assets/models/slim-player.gltf'
+MODEL_PATH = os.environ.get(
+    "AXOLOTL_MODEL_DIR", "D:/axolotl/packages/assets/models").replace("\\","/")\
+    + "/slim-player.gltf"
 
 
 def load_model(pose=None):

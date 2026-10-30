@@ -23,7 +23,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 from PIL import Image
 
-MODEL_DIR = r"D:\axolotl\packages\assets\models"
+# glTF 玩家模型目录。优先级：环境变量 AXOLOTL_MODEL_DIR > 常见默认路径。
+# 仓库不附带模型文件（属于第三方资产），获取方式见 README。
+MODEL_DIR = os.environ.get("AXOLOTL_MODEL_DIR",
+                           r"D:\axolotl\packages\assets\models")
 
 
 # ==============================================================

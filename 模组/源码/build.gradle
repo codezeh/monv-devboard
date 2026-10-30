@@ -1,0 +1,40 @@
+plugins {
+    id 'fabric-loom' version '1.10.1'
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base { archivesName = project.archives_base_name }
+
+repositories {
+    // 如果某个依赖用 Gradle 下载总是 TLS 中断（国内网络常见），
+    // 可以用 curl 预先下到本地目录，再把下面这行取消注释并改成你的路径：
+    // maven { url = uri("file:///D:/modbuild/localrepo") }
+
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // 串口库（纯 Java，不依赖 MC API）；include 表示打进 jar，运行期无需另装
+    implementation 'com.fazecast:jSerialComm:2.11.0'
+    include 'com.fazecast:jSerialComm:2.11.0'
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}

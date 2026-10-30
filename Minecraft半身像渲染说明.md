@@ -103,7 +103,7 @@
 ## 四、用法
 
 ```bash
-cd D:\魔女开发板
+cd <仓库根目录>
 set PYTHONIOENCODING=utf-8
 set PY=C:\Users\zeh\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe
 

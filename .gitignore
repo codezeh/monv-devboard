@@ -48,3 +48,9 @@ desktop.ini
 
 # ---------- 烧录用设备包（pyOCD flash 需要，2MB） ----------
 .tools/
+
+# ---------- Fabric 模组子工程构建产物 ----------
+模组/源码/build/
+模组/源码/.gradle/
+模组/源码/run/
+*.class

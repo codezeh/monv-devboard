@@ -17,7 +17,25 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "例程_ST7735", "示例代码")
 BUILD = os.path.join(HERE, "build")
-TC = r"D:\gcc\arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi\bin"
+# ARM GCC 工具链位置。优先读环境变量 ARM_GCC_BIN，
+# 否则依次试几个常见安装路径（改这里也行）
+_CANDIDATES = [
+    os.environ.get("ARM_GCC_BIN", ""),
+    r"D:\gcc\arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi\bin",
+    r"D:\armgcc\bin",
+    r"C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\13.3 rel1\bin",
+    "/usr/bin",
+]
+TC = next((c for c in _CANDIDATES
+           if c and os.path.exists(os.path.join(c, "arm-none-eabi-gcc.exe"))
+           or c and os.path.exists(os.path.join(c, "arm-none-eabi-gcc"))), "")
+if not TC:
+    raise SystemExit(
+        "找不到 arm-none-eabi-gcc。\n"
+        "请安装 GNU Arm Toolchain（13.x 即可），然后设置环境变量：\n"
+        "    set ARM_GCC_BIN=<工具链>\\bin\n"
+        "或直接改 gcc_build/build.py 里的 _CANDIDATES。")
+print("工具链:", TC)
 PREFIX = os.path.join(TC, "arm-none-eabi-")
 
 CC = PREFIX + "gcc.exe"
